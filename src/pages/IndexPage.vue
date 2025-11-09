@@ -8,7 +8,7 @@
         v-for="telefono in telefonos"
         :key="telefono.id"
       >
-        <div class="card itemTienda" style="width: 11rem; height: 19rem;">
+        <div class="card itemTienda" style="width: 11rem; height: 19rem">
           <a class="sinDecoracion" href="#">
             <img
               :src="telefono.imagenes?.[0] || defaultImage"
@@ -18,9 +18,7 @@
               height="128"
             />
             <div class="card-body">
-              <span
-                class="ms-4 lead fw-bold fst-italic text-decoration-underline fs-4"
-              >
+              <span class="ms-4 lead fw-bold fst-italic text-decoration-underline fs-4">
                 ${{ telefono.Precio }}
               </span>
               <p class="card-text mt-2">
@@ -42,8 +40,7 @@ import { collection } from 'firebase/firestore'
 import { db } from 'src/boot/confi_firebase'
 
 const telefonos = useCollection(collection(db, 'telefonos'))
-const defaultImage =
-  'https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg'
+const defaultImage = 'https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg'
 </script>
 
 <style scoped src="src/assets/estilo.css"></style>
