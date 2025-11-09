@@ -86,3 +86,9 @@ function toggleLeftDrawer() {
   leftDrawerOpen.value = !leftDrawerOpen.value
 }
 </script>
+
+<style scoped>
+.q-toolbar-title {
+  font-weight: bold;
+}
+</style>
