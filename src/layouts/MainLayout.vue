@@ -1,22 +1,38 @@
 <template>
-  <q-layout view="lHh Lpr lFf">
-    <q-header elevated>
+  <q-layout view="hHh lpR fFf">
+    <!-- Barra superior -->
+    <q-header elevated class="bg-primary text-white">
       <q-toolbar>
-        <q-btn flat dense round icon="menu" aria-label="Menu" @click="toggleLeftDrawer" />
 
-        <q-toolbar-title> TIenda </q-toolbar-title>
+        <!-- Logo / nombre -->
+        <q-toolbar-title class="text-h6">
+          📱 Tienda Cellphone
+        </q-toolbar-title>
 
+        <!-- Barra de búsqueda -->
+        <q-input
+          dense
+          standout
+          v-model="busqueda"
+          placeholder="Buscar teléfono..."
+          class="q-mr-md"
+          style="max-width: 250px;"
+          @keyup.enter="buscarProducto"
+        >
+          <template #append>
+            <q-icon name="search" @click="buscarProducto" class="cursor-pointer" />
+          </template>
+        </q-input>
+
+        <!-- Botones de navegación -->
+        <q-btn flat label="Inicio" to="/" icon="home" />
+        <q-btn flat label="Estadísticas" to="/estadisticas" icon="bar_chart" />
+        <q-btn flat label="Añadir" to="/agregar" icon="add_circle" />
+        <q-btn flat label="Carrito" to="/carrito" icon="shopping_cart" />
       </q-toolbar>
     </q-header>
 
-    <q-drawer v-model="leftDrawerOpen" show-if-above bordered>
-      <q-list>
-        <q-item-label header> Navegacion </q-item-label>
-
-        <EssentialLink v-for="link in linksList" :key="link.title" v-bind="link" />
-      </q-list>
-    </q-drawer>
-
+    <!-- Contenido de cada página -->
     <q-page-container>
       <router-view />
     </q-page-container>
@@ -25,21 +41,18 @@
 
 <script setup>
 import { ref } from 'vue'
-import EssentialLink from 'components/EssentialLink.vue'
 
-const linksList = [
-  {
-    title: 'Menu',
-    caption: 'quasar.dev',
-    icon: 'school',
-    link: 'https://quasar.dev',
-  },
+const busqueda = ref('')
 
-]
-
-const leftDrawerOpen = ref(false)
-
-function toggleLeftDrawer() {
-  leftDrawerOpen.value = !leftDrawerOpen.value
+function buscarProducto() {
+  if (!busqueda.value) return
+  // Aquí puedes emitir un evento global o usar un store para filtrar en la página de inicio
+  console.log('Buscando:', busqueda.value)
 }
 </script>
+
+<style scoped>
+.q-toolbar-title {
+  font-weight: bold;
+}
+</style>
