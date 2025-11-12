@@ -2,7 +2,7 @@
   <q-page class="q-pa-md">
     <h3 class="text-center text-primary q-mb-lg">NUEVO ANUNCIO</h3>
 
-    <q-form @submit="createAd" class="q-gutter-lg">
+    <q-form @submit="submitToFirestore" class="q-gutter-lg">
       <div class="row q-col-gutter-xl">
         <div class="col-xs-12 col-md-6">
           <q-card flat bordered class="q-pa-md">
@@ -15,17 +15,27 @@
             <div class="row q-col-gutter-md q-mb-md items-center">
               <div class="col-3 text-right text-weight-medium">Marca:</div>
               <div class="col-9">
-                <q-input dense outlined v-model="form.marca" default="Iphone" />
+                <q-input
+                  dense
+                  outlined
+                  v-model="form.marca"
+                  :rules="[(val) => !!val || 'Requerido']"
+                />
               </div>
 
               <div class="col-3 text-right text-weight-medium">Modelo:</div>
               <div class="col-9">
-                <q-input dense outlined v-model="form.modelo" default="6 plus" />
+                <q-input
+                  dense
+                  outlined
+                  v-model="form.modelo"
+                  :rules="[(val) => !!val || 'Requerido']"
+                />
               </div>
 
               <div class="col-3 text-right text-weight-medium">Pantalla:</div>
               <div class="col-auto">
-                <q-input dense outlined v-model="form.pantalla" default="5.5" style="width: 80px" />
+                <q-input dense outlined v-model="form.pantalla" style="width: 80px" />
               </div>
               <div class="col-auto">Pulgadas</div>
 
@@ -36,19 +46,18 @@
                   outlined
                   v-model="form.sistema"
                   :options="['Ios', 'Android', 'Windows']"
-                  default="Ios"
                 />
               </div>
 
               <div class="col-3 text-right text-weight-medium">Rom:</div>
               <div class="col-auto">
-                <q-input dense outlined v-model="form.rom" default="64 GB" style="width: 80px" />
+                <q-input dense outlined v-model="form.rom" style="width: 80px" />
               </div>
               <div class="col-auto">Almacenamiento interno</div>
 
               <div class="col-3 text-right text-weight-medium">RAM:</div>
               <div class="col-9">
-                <q-input dense outlined v-model="form.ram" default="2 GB" style="width: 80px" />
+                <q-input dense outlined v-model="form.ram" style="width: 80px" />
               </div>
             </div>
           </q-card>
@@ -79,34 +88,23 @@
         <div class="col-xs-12 col-md-6">
           <div class="q-mb-md">
             <div class="text-weight-bold q-mb-sm">Título breve del anuncio</div>
-            <q-input
-              dense
-              outlined
-              v-model="form.titulo"
-              default="Iphone 6 pantalla de 8 pulgadas, 64Gb internos,"
-            />
+            <q-input dense outlined v-model="form.titulo" />
           </div>
 
           <div class="row q-col-gutter-md q-mb-md">
             <div class="col-6">
               <div class="text-weight-bold q-mb-sm">Vendedor:</div>
-              <q-input dense outlined v-model="form.vendedor" default="Juan Perez" />
+              <q-input dense outlined v-model="form.vendedor" />
             </div>
             <div class="col-6">
               <div class="text-weight-bold q-mb-sm">Teléfono:</div>
-              <q-input dense outlined v-model="form.telefono" default="21213-1212" />
+              <q-input dense outlined v-model="form.telefono" />
             </div>
           </div>
 
           <div class="q-mb-lg">
             <div class="text-weight-bold q-mb-sm">DESCRIPCION</div>
-            <q-input
-              type="textarea"
-              outlined
-              v-model="form.descripcion"
-              rows="5"
-              default="Telefono en muy buenas condiciones..."
-            />
+            <q-input type="textarea" outlined v-model="form.descripcion" rows="5" />
           </div>
 
           <div class="q-mb-lg text-center">
@@ -114,10 +112,11 @@
             <q-input
               dense
               outlined
-              v-model="form.precio"
+              v-model.number="form.precio"
+              type="number"
+              :rules="[(val) => val > 0 || 'Mayor a $0']"
               prefix="$"
               style="width: 150px; margin: 0 auto"
-              default="235.00"
             />
           </div>
 
@@ -127,9 +126,9 @@
               icon="close"
               color="negative"
               outline
-              @click="$router.push('/')"
+              @click="router.push('/')"
             />
-            <q-btn label="Crear" icon="check" color="primary" type="submit" />
+            <q-btn label="Crear" icon="check" color="primary" type="submit" :loading="loading" />
           </div>
         </div>
       </div>
@@ -141,29 +140,36 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
+import { collection, addDoc } from 'firebase/firestore' // Importaciones de Firebase
+import { db } from 'src/boot/confi_firebase' // Asegura que esta ruta sea correcta
 
 const $q = useQuasar()
 const router = useRouter()
+const loading = ref(false) // Estado para deshabilitar el botón
 
-// Estado inicial del formulario (basado en los datos de ejemplo)
-const form = ref({
+// --- Variables para el Formulario ---
+
+// Estado inicial del formulario (Asegúrate de que las claves coincidan con tu HTML)
+const initialForm = {
   estado: 'Nuevo',
-  marca: 'Iphone',
-  modelo: '6 plus',
-  pantalla: '5.5',
+  marca: null,
+  modelo: null,
+  pantalla: null,
   sistema: 'Ios',
-  rom: '64 GB',
-  ram: '2 GB',
-  titulo: 'Iphone 6 pantalla de 8 pulgadas, 64Gb internos,',
-  vendedor: 'Juan Perez',
-  telefono: '21213-1212',
-  descripcion: 'Telefono en muy buenas condiciones...',
-  precio: '235.00',
-})
+  rom: null,
+  ram: null,
+  titulo: null,
+  vendedor: null,
+  telefono: null,
+  descripcion: null,
+  precio: null, // Debe ser null para usar v-model.number
+}
 
-const files = ref(null) // Para el componente QFile
+const form = ref({ ...initialForm })
+const files = ref(null)
 
-// Datos para simular la tabla de imágenes (Página 4)
+// --- Funciones para manejo de Imágenes (Simulación) ---
+
 const imageColumns = [
   { name: 'n', required: true, label: 'N', align: 'left', field: 'n', sortable: true },
   { name: 'tamano', label: 'Tamaño', align: 'left', field: 'tamano', sortable: true },
@@ -172,31 +178,74 @@ const imageColumns = [
 const imageRows = [
   { n: 1, tamano: '145 kb', tipo: 'jpg' },
   { n: 2, tamano: '145 kb', tipo: 'png' },
-  { n: 3, tamano: '145 kb', tipo: 'png' },
-  { n: 4, tamano: '145 kb', tipo: 'jpg' },
-]
-
-// Función al enviar el formulario
-function createAd() {
-  // Aquí iría la lógica para enviar la data a un backend (API)
-  console.log('Anuncio Creado:', form.value)
-
-  // 1. Mostrar mensaje de guardado (QNotify)
-  $q.notify({
-    message: 'Anuncio guardado satisfactoriamente',
-    color: 'positive',
-    icon: 'check_circle',
-    timeout: 3000, // Se muestra solo por unos segundos
-  })
-
-  // 2. Regresar al inicio
-  setTimeout(() => {
-    router.push('/')
-  }, 3200) // Espera un poco más que el timeout de la notificación
-}
+] // Dejamos solo dos filas de ejemplo
 
 function removeFile(index) {
   // Lógica para remover un archivo
   console.log(`Remover archivo en índice: ${index}`)
+  $q.notify({ message: `Archivo en índice ${index} removido (Simulación).`, color: 'info' })
+}
+
+// Función para reiniciar el formulario a su estado inicial
+function resetForm() {
+  form.value = { ...initialForm }
+}
+
+// --- LÓGICA CLAVE DE FIREBASE ---
+
+async function submitToFirestore() {
+  loading.value = true
+  try {
+    // Mapear los nombres de campo de tu formulario a los nombres de campo de Firestore
+    const newPhone = {
+      Marca: form.value.marca,
+      Modelo: form.value.modelo,
+      Precio: Number(form.value.precio), // Aseguramos que sea un número
+      Ram: form.value.ram,
+      Rom: form.value.rom,
+      Pantalla: `${form.value.pantalla} pulgadas`, // Formateamos si es necesario
+      Sistema: form.value.sistema,
+      Estado: form.value.estado,
+      Titulo: form.value.titulo,
+      Vendedor: form.value.vendedor,
+      Telefono: form.value.telefono,
+      Descripcion: form.value.descripcion,
+      // Por ahora, usamos un placeholder para la imagen
+      imagenes: ['https://via.placeholder.com/128'],
+      FechaCreacion: new Date(),
+    }
+
+    // 2. Subir el documento a Firestore
+    const docRef = await addDoc(collection(db, 'telefonos'), newPhone)
+
+    // 3. Notificación de éxito
+    $q.notify({
+      color: 'positive',
+      icon: 'done',
+      message: `Anuncio publicado con éxito! ID: ${docRef.id}. Redirigiendo...`,
+    })
+
+    // 4. Limpiar el formulario y redirigir
+    resetForm()
+    setTimeout(() => {
+      router.push('/')
+    }, 1500)
+  } catch (error) {
+    console.error('Error al añadir el documento: ', error)
+    $q.notify({
+      color: 'negative',
+      icon: 'warning',
+      message: 'Error al publicar. Revisa la consola y la conexión a Firebase.',
+    })
+  } finally {
+    loading.value = false
+  }
 }
 </script>
+
+<style scoped>
+.q-form {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+</style>
