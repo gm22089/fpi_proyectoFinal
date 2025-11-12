@@ -13,7 +13,7 @@ const routes = [
       { path: 'new-ad', component: () => import('pages/NewAdPage.vue') },
 
       // 3. Agrega las demás rutas aquí, como Carrito o Estadísticas
-      // { path: 'stats', component: () => import('pages/StatsPage.vue') },
+      { path: 'stats', component: () => import('pages/StatsPage.vue') },
       // { path: 'cart', component: () => import('pages/CartPage.vue') },
     ],
   },
