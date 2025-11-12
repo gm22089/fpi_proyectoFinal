@@ -66,7 +66,14 @@
             <div class="text-weight-bold q-mb-sm">Imágenes</div>
             <div class="row q-col-gutter-md">
               <div class="col-4 flex flex-center">
-                <q-file label="Agregar Foto" borderless v-model="files" multiple>
+                <q-file
+                  label="Agregar Foto"
+                  borderless
+                  v-model="files"
+                  multiple
+                  accept=".jpg, image/*"
+                  :rules="[(val) => (val && val.length > 0) || 'Se requiere al menos una imagen']"
+                >
                   <template v-slot:file="{ file, index }">
                     <q-chip dense removable @remove="removeFile(index)">
                       {{ file.name }}
@@ -79,7 +86,14 @@
               </div>
 
               <div class="col-8">
-                <q-table :rows="imageRows" :columns="imageColumns" row-key="n" dense hide-bottom />
+                <q-table
+                  :rows="computedImageRows"
+                  :columns="imageColumns"
+                  row-key="n"
+                  dense
+                  hide-bottom
+                  title="Archivos Seleccionados"
+                />
               </div>
             </div>
           </q-card>
@@ -137,19 +151,19 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
-import { collection, addDoc } from 'firebase/firestore' // Importaciones de Firebase
-import { db } from 'src/boot/confi_firebase' // Asegura que esta ruta sea correcta
+import { collection, addDoc } from 'firebase/firestore'
+// IMPORTACIONES CLAVE DE FIREBASE (DB Y STORAGE)
+import { storage, db } from 'src/boot/confi_firebase'
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 
 const $q = useQuasar()
 const router = useRouter()
-const loading = ref(false) // Estado para deshabilitar el botón
+const loading = ref(false)
 
-// --- Variables para el Formulario ---
-
-// Estado inicial del formulario (Asegúrate de que las claves coincidan con tu HTML)
+// --- Variables del Formulario ---
 const initialForm = {
   estado: 'Nuevo',
   marca: null,
@@ -162,80 +176,121 @@ const initialForm = {
   vendedor: null,
   telefono: null,
   descripcion: null,
-  precio: null, // Debe ser null para usar v-model.number
+  precio: null,
 }
 
 const form = ref({ ...initialForm })
 const files = ref(null)
 
-// --- Funciones para manejo de Imágenes (Simulación) ---
-
+// --- Funciones de Utilidad ---
 const imageColumns = [
-  { name: 'n', required: true, label: 'N', align: 'left', field: 'n', sortable: true },
-  { name: 'tamano', label: 'Tamaño', align: 'left', field: 'tamano', sortable: true },
-  { name: 'tipo', label: 'Tipo', field: 'tipo', align: 'left' },
+  { name: 'n', required: true, label: 'N', align: 'left', field: 'n', sortable: false },
+  { name: 'nombre', label: 'Nombre', align: 'left', field: 'nombre', sortable: false },
+  { name: 'tamano', label: 'Tamaño (KB)', align: 'left', field: 'tamano', sortable: false },
+  { name: 'tipo', label: 'Tipo', field: 'tipo', align: 'left', sortable: false },
 ]
-const imageRows = [
-  { n: 1, tamano: '145 kb', tipo: 'jpg' },
-  { n: 2, tamano: '145 kb', tipo: 'png' },
-] // Dejamos solo dos filas de ejemplo
+
+const computedImageRows = computed(() => {
+  if (!files.value) return []
+  return files.value.map((file, index) => ({
+    n: index + 1,
+    nombre: file.name,
+    tamano: (file.size / 1024).toFixed(1),
+    tipo: file.type.split('/').pop() || 'desconocido',
+  }))
+})
 
 function removeFile(index) {
-  // Lógica para remover un archivo
-  console.log(`Remover archivo en índice: ${index}`)
-  $q.notify({ message: `Archivo en índice ${index} removido (Simulación).`, color: 'info' })
+  if (files.value && index >= 0 && index < files.value.length) {
+    files.value.splice(index, 1)
+    $q.notify({ message: `Archivo ${index + 1} removido.`, color: 'info' })
+  }
 }
 
-// Función para reiniciar el formulario a su estado inicial
 function resetForm() {
   form.value = { ...initialForm }
+  files.value = null
 }
 
-// --- LÓGICA CLAVE DE FIREBASE ---
+// --- LÓGICA CLAVE DE FIREBASE STORAGE Y FIRESTORE ---
+
+async function uploadFiles() {
+  const downloadURLs = []
+  if (!files.value || files.value.length === 0) {
+    return ['https://via.placeholder.com/128/0000FF/FFFFFF?text=Sin+Imagen']
+  }
+
+  for (const file of files.value) {
+    // Crea una ruta para el archivo
+    const safeMarca = form.value.marca.replace(/[^a-z0-9]/gi, '_')
+    const safeModelo = form.value.modelo.replace(/[^a-z0-9]/gi, '_')
+    const path = `telefonos/${safeMarca}-${safeModelo}/${Date.now()}-${file.name}`
+
+    const fileRef = storageRef(storage, path)
+
+    // 1. Subir el archivo
+    await uploadBytes(fileRef, file)
+
+    // 2. Obtener la URL pública
+    const url = await getDownloadURL(fileRef)
+    downloadURLs.push(url)
+  }
+  return downloadURLs
+}
 
 async function submitToFirestore() {
+  if (!form.value.marca || !form.value.modelo || !form.value.precio) {
+    $q.notify({
+      color: 'negative',
+      message: 'Asegúrate de llenar Marca, Modelo y Precio antes de subir.',
+    })
+    return
+  }
+
   loading.value = true
   try {
-    // Mapear los nombres de campo de tu formulario a los nombres de campo de Firestore
+    // 1. SUBIR ARCHIVOS y obtener las URLs
+    const imageURLs = await uploadFiles()
+
+    // 2. Crear el objeto de datos con las URLs
     const newPhone = {
       Marca: form.value.marca,
       Modelo: form.value.modelo,
-      Precio: Number(form.value.precio), // Aseguramos que sea un número
+      Precio: Number(form.value.precio),
       Ram: form.value.ram,
       Rom: form.value.rom,
-      Pantalla: `${form.value.pantalla} pulgadas`, // Formateamos si es necesario
+      Pantalla: form.value.pantalla,
       Sistema: form.value.sistema,
       Estado: form.value.estado,
       Titulo: form.value.titulo,
       Vendedor: form.value.vendedor,
       Telefono: form.value.telefono,
       Descripcion: form.value.descripcion,
-      // Por ahora, usamos un placeholder para la imagen
-      imagenes: ['https://via.placeholder.com/128'],
+      imagenes: imageURLs,
       FechaCreacion: new Date(),
     }
 
-    // 2. Subir el documento a Firestore
+    // 3. Subir el documento a Firestore
     const docRef = await addDoc(collection(db, 'telefonos'), newPhone)
 
-    // 3. Notificación de éxito
+    // 4. Notificación y Redirección
     $q.notify({
       color: 'positive',
       icon: 'done',
       message: `Anuncio publicado con éxito! ID: ${docRef.id}. Redirigiendo...`,
     })
 
-    // 4. Limpiar el formulario y redirigir
     resetForm()
+
     setTimeout(() => {
       router.push('/')
     }, 1500)
   } catch (error) {
-    console.error('Error al añadir el documento: ', error)
+    console.error('Error al publicar el anuncio: ', error)
     $q.notify({
       color: 'negative',
       icon: 'warning',
-      message: 'Error al publicar. Revisa la consola y la conexión a Firebase.',
+      message: `Error en la subida. Verifica la consola y las reglas de Storage. Detalle: ${error.message}`,
     })
   } finally {
     loading.value = false
