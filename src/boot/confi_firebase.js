@@ -1,40 +1,44 @@
 import { defineBoot } from '#q-app/wrappers'
 
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
-import { VueFire } from 'vuefire'; 
+// Importaciones necesarias de Firebase
+import { initializeApp } from 'firebase/app'
+import { getFirestore } from 'firebase/firestore'
+// Importar getStorage para manejar la subida de archivos/imágenes
+import { getStorage } from 'firebase/storage'
+import { VueFire } from 'vuefire'
 
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+// Las variables globales __firebase_config son las que se deben usar en este entorno.
+// Sin embargo, mantendré tu configuración literal para que coincida con tu proyecto.
 
-// Your web app's Firebase configuration
+// Tu configuración de Firebase
 const firebaseConfig = {
-  apiKey: "AIzaSyDnKXuIiEjmjEQ1HrFhxCXxprMzc9hsVgA",
-  authDomain: "fpi-proyectoend.firebaseapp.com",
-  projectId: "fpi-proyectoend",
-  storageBucket: "fpi-proyectoend.firebasestorage.app",
-  messagingSenderId: "255900535195",
-  appId: "1:255900535195:web:11e5d6b776dd60e717393e"
-};
+  apiKey: 'AIzaSyDnKXuIiEjmjEQ1HrFhxCXxprMzc9hsVgA',
+  authDomain: 'fpi-proyectoend.firebaseapp.com',
+  projectId: 'fpi-proyectoend',
+  storageBucket: 'fpi-proyectoend.firebasestorage.app',
+  messagingSenderId: '255900535195',
+  appId: '1:255900535195:web:11e5d6b776dd60e717393e',
+}
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Inicializar Firebase
+const app = initializeApp(firebaseConfig)
 
-// Initialize cloud firestore
-const db = getFirestore(app);
+// 1. Inicializar Cloud Firestore (Base de Datos)
+const db = getFirestore(app)
 
+// 2. Inicializar Firebase Storage (Almacenamiento de Archivos)
+const storage = getStorage(app)
 
-// "async" is optional;
-// more info on params: https://v2.quasar.dev/quasar-cli-vite/boot-files
-export default defineBoot( ( { app } ) => {
+// Inicialización de VueFire en el arranque de Quasar
+export default defineBoot(({ app }) => {
+  // Aquí se utiliza el 'app' (la instancia de Firebase) que creaste.
   app.use(VueFire, {
     app,
     modules: [
-      // we will see what to put here later
-    ], 
-  })  // something to do
-});
+      // Puedes añadir módulos de VueFire aquí si los necesitas
+    ],
+  })
+})
 
-
-export { db };
+// EXPORTAR ambos servicios: db y storage, para que otros componentes puedan usarlos.
+export { db, storage }
