@@ -1,10 +1,5 @@
 <template>
   <q-page padding class="q-gutter-md">
-    <!-- Nombre de la empresa -->
-    <div class="text-center q-mb-lg">
-      <h2 class="text-h4 text-uppercase text-weight-bold">Tienda Cellphone</h2>
-    </div>
-
     <!-- Contenido Principal (Filtros y Productos) -->
     <div class="row q-col-gutter-lg">
       <!-- ========================================= -->
@@ -82,9 +77,19 @@
       <!-- LISTADO DE PRODUCTOS -->
       <!-- ========================================= -->
       <div class="col-12 col-lg-9">
+        <!-- Mensaje de búsqueda activa -->
+        <q-card v-if="searchQuery" flat bordered class="q-pa-md q-mb-md bg-yellow-1">
+          <div class="row items-center">
+            <q-icon name="info" color="warning" size="sm" class="q-mr-sm" />
+            <span class="text-weight-medium">
+              Mostrando resultados para:
+              <span class="text-weight-bold text-primary">"{{ searchQuery }}"</span>
+            </span>
+          </div>
+        </q-card>
+
         <!-- FILTRO SUPERIOR (PRECIO Y ORDENACIÓN) -->
         <q-card flat bordered class="q-pa-md q-mb-md">
-          <!-- CAMBIO: Añadimos 'justify-center' aquí para centrar el bloque de filtros superiores -->
           <div class="row items-center q-gutter-md justify-center">
             <!-- BLOQUE MÓVIL: Botón de Filtros + Ordenación (lt-lg) -->
             <div class="row q-gutter-sm lt-lg full-width">
@@ -166,9 +171,12 @@
             :key="telefono.id"
             class="col-6 col-sm-4 col-md-3 col-lg-4 col-xl-3"
           >
-            <q-card class="full-height">
-              <router-link :to="{ path: '#' }" class="text-decoration-none text-black">
-                <!-- IMAGEN DEL PRODUCTO (USANDO EL PRIMER ELEMENTO DEL ARRAY 'imagenes') -->
+            <q-card class="full-height cursor-pointer hover-effect">
+              <router-link
+                :to="{ name: 'product-details', params: { id: telefono.id } }"
+                class="text-decoration-none text-black full-height block"
+              >
+                <!-- IMAGEN DEL PRODUCTO -->
                 <q-img
                   :src="telefono.imagenes?.[0] || defaultImage"
                   :alt="`Imagen de ${telefono.Marca} ${telefono.Modelo}`"
@@ -187,7 +195,6 @@
                   <div class="text-caption text-grey-6">
                     {{ telefono.Ram }} / {{ telefono.Rom }} | {{ telefono.Pantalla }}
                   </div>
-                  <!-- Se usa 'Estado' (mayúscula) y se verifica el valor 'nuevo' (minúscula) -->
                   <q-badge
                     :color="
                       telefono.Estado && telefono.Estado.toLowerCase() === 'nuevo'
@@ -357,16 +364,21 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useQuasar } from 'quasar'
+import { useRoute } from 'vue-router' // 1. Importar useRoute
 import { useCollection } from 'vuefire'
 import { collection } from 'firebase/firestore'
 import { db } from 'src/boot/confi_firebase'
 
 const $q = useQuasar()
+const route = useRoute() // 2. Inicializar useRoute
 
 // Carga en tiempo real la colección 'telefonos' de Firestore
 const telefonos = useCollection(collection(db, 'telefonos'))
 // Imagen por defecto si no se encuentra ninguna URL de imagen
 const defaultImage = 'https://placehold.co/120x120/E8F0FE/000000?text=No%20Imagen'
+
+// 3. Propiedad computada para obtener el término de búsqueda de la URL
+const searchQuery = computed(() => route.query.q || '')
 
 // ==========================
 // Variables de filtros
@@ -398,7 +410,6 @@ const itemsPorPagina = computed(() => {
 // ==========================
 // Datos de selección
 // ==========================
-// NOTA: Es importante que estos valores coincidan exactamente con los valores guardados en Firestore.
 const marcasDisponibles = ['Iphone', 'Samsung', 'Huawei', 'Nokia', 'Xiaomi']
 const sistemasDisponibles = ['iOS', 'Android', 'Windows']
 const pantallasDisponibles = ['5 pulgadas', '6 pulgadas', '7 pulgadas']
@@ -409,23 +420,35 @@ const pantallasDisponibles = ['5 pulgadas', '6 pulgadas', '7 pulgadas']
 const telefonosFiltrados = computed(() => {
   let lista = telefonos.value || []
   const isButtonFiltersActive = filtrosActivos.value
+  const query = searchQuery.value ? searchQuery.value.toLowerCase() : '' // Término de búsqueda global
 
   // --- 1. FILTRADO ---
   lista = lista.filter((t) => {
-    // Es buena práctica convertir a Number y usar 0 o Infinity como fallback
+    // 4. FILTRO DE BÚSQUEDA GLOBAL
+    if (query) {
+      // Concatenamos Marca y Modelo como el título por defecto
+      const title = (t.Titulo || `${t.Marca} ${t.Modelo}`).toLowerCase()
+      const model = t.Modelo ? t.Modelo.toLowerCase() : ''
+      const brand = t.Marca ? t.Marca.toLowerCase() : ''
+
+      // Si no coincide con el título/modelo/marca, se excluye
+      if (!title.includes(query) && !model.includes(query) && !brand.includes(query)) {
+        return false
+      }
+    }
+
+    // Filtros de Rango de Precio
     const precio = Number(t.Precio) || 0
     const min = precioMin.value || 0
     const max = precioMax.value || Infinity
 
-    // Filtro por precio
     if (!(precio >= min && precio <= max)) return false
 
-    // Filtro por estado (IMPORTANTE: Usar 't.Estado' para coincidir con Firestore y 'nuevo' en minúscula)
+    // Filtro por estado
     if (soloNuevos.value && !(t.Estado && t.Estado.toLowerCase() === 'nuevo')) return false
 
     // Filtros de Checkbox (solo se aplican si se presiona "Aplicar Filtros")
     if (isButtonFiltersActive) {
-      // Nota: Asegúrate de que las propiedades coincidan con la capitalización de Firestore: Marca, Sistema, Pantalla
       const cumpleMarca = filtroMarcas.value.length === 0 || filtroMarcas.value.includes(t.Marca)
       const cumpleSistema =
         filtroSistemas.value.length === 0 || filtroSistemas.value.includes(t.Sistema)
@@ -483,8 +506,8 @@ watch(
   { immediate: true },
 )
 
-// Reinicia paginación al cambiar filtros de precio
-watch([precioMin, precioMax], () => {
+// 5. Reinicia paginación al cambiar filtros de precio O la búsqueda global
+watch([precioMin, precioMax, searchQuery], () => {
   paginaActual.value = 1
 })
 

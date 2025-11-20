@@ -1,40 +1,34 @@
-import MainLayout from 'layouts/MainLayout.vue'
-
-// Archivo de configuración de rutas
 const routes = [
   {
     path: '/',
-    component: MainLayout, // Todas estas rutas usarán el MainLayout
+    component: () => import('layouts/MainLayout.vue'),
     children: [
-      // 1. Ruta de Inicio ( / )
       {
-        path: '', // path vacío significa ruta raíz. por lo que es "/"
+        path: '',
         name: 'home',
         component: () => import('pages/IndexPage.vue'),
       },
-      // 2. Ruta para Añadir un Producto ( /agregar )
       {
         path: 'agregar',
         name: 'agregar',
-        // CORRECCIÓN: Usamos solo 'pages/' para consistencia.
         component: () => import('pages/AgregarTelefono.vue'),
       },
-      // 3. Ruta para Estadisticas ( /estadisticas )
       {
         path: 'estadisticas',
         name: 'stats',
         component: () => import('pages/StatsPage.vue'),
       },
-      // 4. Ruta para Carrito ( /carrito ) - Descomentar si tienes el archivo CartPage.vue
-      // {
-      //   path: 'carrito',
-      //   name: 'carrito',
-      //   component: () => import('pages/CartPage.vue')
-      // },
+
+      // --- NUEVA RUTA PARA EL DETALLE DEL PRODUCTO ---
+      // :id indica que es un parámetro dinámico
+      {
+        path: 'producto/:id',
+        name: 'product-details',
+        component: () => import('pages/ProductDetailsPage.vue'),
+      },
     ],
   },
 
-  // Siempre deja esta como la última: la ruta 404 (Not Found)
   {
     path: '/:catchAll(.*)*',
     component: () => import('pages/ErrorNotFound.vue'),
